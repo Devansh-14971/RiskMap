@@ -1,0 +1,55 @@
+name: Test Models ZIP
+
+on:
+  workflow_dispatch: # manual trigger
+  release:
+    types: [published, edited]
+
+jobs:
+  validate-zip:
+    if: startsWith(github.event.release.tag_name, 'models-') # skip non-models releases
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download latest models.zip
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: ${{ github.repository }}
+          latest: true
+          fileName: "models.zip"
+
+      - name: Extract models.zip
+        run: |
+          mkdir extracted
+          unzip models.zip -d extracted
+
+      - name: Validate structure
+        run: |
+          echo "Checking subfolders..." | tee report.txt
+          if [ $(find extracted -mindepth 1 -type d | wc -l) -eq 0 ]; then
+            echo "❌ No subfolders found in models.zip!" | tee -a report.txt
+            exit 1
+          else
+            echo "✅ Subfolders found." | tee -a report.txt
+          fi
+
+          echo "" | tee -a report.txt
+          echo "Checking duplicate filenames across folders..." | tee -a report.txt
+          allfiles=$(find extracted -type f -printf "%f\n")
+          dupes=$(echo "$allfiles" | sort | uniq -d)
+          if [ ! -z "$dupes" ]; then
+            echo "❌ Duplicate file names found across folders:" | tee -a report.txt
+            echo "$dupes" | tee -a report.txt
+            exit 1
+          else
+            echo "✅ No duplicate filenames." | tee -a report.txt
+          fi
+
+          echo "" | tee -a report.txt
+          echo "Structure of extracted models.zip:" | tee -a report.txt
+          find extracted | tee -a report.txt
+
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: models-zip-report
+          path: report.txt
