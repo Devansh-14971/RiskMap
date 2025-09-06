@@ -1,0 +1,55 @@
+name: Build and Package
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest   # Windows since you're packaging for Windows
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create ZIP (excluding junk)
+        run: |
+          $exclude = @(
+            '.git*',
+            '.github*',
+            'installer*',
+            '__pycache__',
+            '*.log'
+          )
+          $items = Get-ChildItem -Force | Where-Object { $_.Name -notmatch '^(\.git|\.github|installer|__pycache__|.*\.log)$' }
+          Compress-Archive -Path $items.FullName -DestinationPath app.zip -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-zip
+          path: app.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-zip
+
+      - name: Create or Update Nightly Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: nightly
+          name: "Nightly Build"
+          files: app.zip
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
