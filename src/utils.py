@@ -1,19 +1,23 @@
 from pathlib import Path
 import tkinter as tk
 import shutil
-import os, cv2
+import os, cv2, sys
 
 def resolve_path(rel_path: str) -> str:
     """
-    Returns absolute paths from relative paths
+    Resolve relative paths in both source and PyInstaller bundled executables.
     """
-    # if rel_path[0] in ['/','\\']:
-    #     raise ValueError(f"Expected relative path, got absolute path. {rel_path}")
-    check = Path(rel_path).is_absolute()
-    if check:
+    # If absolute path, return directly
+    if Path(rel_path).is_absolute():
         return rel_path
-    BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-    return os.path.abspath(os.path.join(BASE_PATH,rel_path))
+
+    # Handle PyInstaller _MEIPASS
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+
+    return os.path.abspath(os.path.join(base_path, rel_path))
 
 
 def current_w_folder() -> Path:
